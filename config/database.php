@@ -1,6 +1,5 @@
 <?php
 // config/database.php
-// No session_start() here - it's in init.php
 
 // Database configuration
 define('DB_HOST', getenv("DB_HOST") ?: 'database');
@@ -20,14 +19,16 @@ function getDatabaseConnection() {
             die("Connection failed. Please try again later.");
         }
         
-        // Set charset to UTF-8
-        $conn->set_charset("utf8mb4");
+        // Set charset to UTF-8 in PHP instead of MySQL config
+        if (!$conn->set_charset("utf8mb4")) {
+            error_log("Error setting charset: " . $conn->error);
+        }
     }
     
     return $conn;
 }
 
-// Helper functions
+// Helper functions remain the same...
 function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
