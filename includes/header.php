@@ -29,9 +29,8 @@
                         <?php endif; ?>
                         <a href="/logout.php"><i class="fas fa-sign-out-alt"></i> Logout</a>
                     <?php else: ?>
-                        <a href="/auth/login.php"><i class="fas fa-sign-in-alt"></i> Login</a>
                         <a href="/auth/login.php?redirect=cart" class="btn btn-primary">Login</a>
-                        <a href="/auth/register.php"><i class="fas fa-user-plus"></i> Register</a>
+                        <a href="/auth/register.php"><i class="btn btn-primary"></i> Register</a>
                     <?php endif; ?>
                 </div>
             </div>
