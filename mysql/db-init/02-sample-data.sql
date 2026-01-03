@@ -1,8 +1,23 @@
 USE phone_store;
 
+-- Use the correct database name (from your schema)
+USE mydatabase;
+
+-- Clear existing data (if needed)
+DELETE FROM wishlist;
+DELETE FROM reviews;
+DELETE FROM cart;
+DELETE FROM products;
+DELETE FROM categories;
+DELETE FROM users;
+
+-- Reset auto-increment counters
+ALTER TABLE users AUTO_INCREMENT = 1;
+ALTER TABLE categories AUTO_INCREMENT = 1;
+ALTER TABLE products AUTO_INCREMENT = 1;
+
 -- Insert admin user (password: admin123)
--- Generate password hash with: echo password_hash('admin123', PASSWORD_DEFAULT);
--- For testing, you can use this hash: $2y$10$N9qo8uLOickgx2ZMRZoMye/.G6t7c6m8nX6tX7c1J7z6QbQ5qY5Wq
+-- Using the hash you provided: $2y$10$N9qo8uLOickgx2ZMRZoMye/.G6t7c6m8nX6tX7c1J7z6QbQ5qY5Wq
 INSERT INTO users (username, password, email, full_name, role) VALUES
 ('admin', '$2y$10$N9qo8uLOickgx2ZMRZoMye/.G6t7c6m8nX6tX7c1J7z6QbQ5qY5Wq', 'admin@phonestore.com', 'Admin User', 'admin'),
   ('admin', 'admin', 'admin@phonestore.com', 'Admin User', 'admin'),
@@ -26,22 +41,22 @@ INSERT INTO products (name, slug, description, brand, model, price, discount_pri
 ('AirPods Pro', 'airpods-pro', 'Wireless earbuds with noise cancellation', 'Apple', 'AirPods Pro', 249.99, 229.99, 3, 100, 'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?auto=format&fit=crop&w=600', FALSE),
 ('Samsung Galaxy Tab S9', 'samsung-galaxy-tab-s9', 'Premium Android tablet', 'Samsung', 'Galaxy Tab S9', 1199.99, 1099.99, 4, 20, 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=600', FALSE);
 
--- Insert sample cart items
+-- Insert sample cart items (user_id 2 = john_doe, user_id 3 = jane_smith)
 INSERT INTO cart (user_id, product_id, quantity) VALUES
-(2, 1, 1),
-(2, 3, 2),
-(3, 2, 1);
+(2, 1, 1),  -- john adds iPhone 15 Pro Max
+(2, 3, 2),  -- john adds 2 Google Pixel 8 Pro
+(3, 2, 1);  -- jane adds Samsung Galaxy S24 Ultra
 
 -- Insert sample reviews
 INSERT INTO reviews (user_id, product_id, rating, comment) VALUES
 (2, 1, 5, 'Amazing phone!'),
 (3, 1, 4, 'Great phone'),
 (2, 3, 5, 'Best Android phone'),
-(3, 5, 5, 'Perfect noise cancellation');
+(3, 2, 5, 'Perfect noise cancellation');
 
--- Insert sample wishlist items
+-- Insert sample wishlist items (using valid product IDs 1-6)
 INSERT INTO wishlist (user_id, product_id) VALUES
-(2, 4),
-(2, 6),
-(3, 7),
-(3, 8);
+(2, 4),  -- john wishes OnePlus 12
+(2, 6),  -- john wishes Samsung Galaxy Tab S9
+(3, 2),  -- jane wishes Samsung Galaxy S24 Ultra
+(3, 5);  -- jane wishes AirPods Pro
