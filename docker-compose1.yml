@@ -1,0 +1,47 @@
+services:
+  web:
+    image: chaitanya976/web2
+    container_name: php-web
+    ports:
+      - "80:80"
+    environment:
+      DB_HOST: mysql
+      DB_USER: root
+      DB_PASSWORD: rootpassword
+      DB_NAME: phone_store
+    depends_on:
+      - mysql
+    networks:
+      - phone-store-network
+
+  mysql:
+    image: chaitanya976/mysql2
+    container_name: mysql-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: phone_store
+    volumes:
+      - mysql-data:/var/lib/mysql   # Persistent storage
+    ports:
+      - "3306:3306"                 # Optional (for debugging)
+    networks:
+      - phone-store-network
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phone-store-pma
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: mysql
+      MYSQL_ROOT_PASSWORD: rootpassword
+    networks:
+      - phone-store-network
+
+networks:
+  phone-store-network:
+    driver: bridge
+
+volumes:
+  db_data:
