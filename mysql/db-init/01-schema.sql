@@ -1,6 +1,6 @@
 -- Phone Store Database Schema
-CREATE DATABASE IF NOT EXISTS phone_store;
-USE phone_store;
+CREATE DATABASE IF NOT EXISTS mydatabase;
+USE mydatabase;
 
 -- Users table
 CREATE TABLE users (
