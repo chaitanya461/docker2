@@ -95,16 +95,20 @@ try {
 $totalPages = ceil($totalProducts / $limit);
 
 // Get products with pagination
-$base_query .= " LIMIT ? OFFSET ?";
-$params[] = $limit;
-$params[] = $offset;
-$types .= 'ii';
+// Create new params array for main query since we need to add limit/offset
+$main_params = $params; // Copy existing params
+$main_types = $types; // Copy existing types
+
+$base_query .= " ORDER BY p.created_at DESC LIMIT ? OFFSET ?";
+$main_params[] = $limit;
+$main_params[] = $offset;
+$main_types .= 'ii';
 
 $products = null;
 try {
     $stmt = $conn->prepare($base_query);
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+    if (!empty($main_params)) {
+        $stmt->bind_param($main_types, ...$main_params);
     }
     $stmt->execute();
     $products = $stmt->get_result();
