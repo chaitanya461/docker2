@@ -1,8 +1,6 @@
-<?php
-// index.php - Homepage
-require_once 'config/init.php';
 
-$page_title = "Home - Best Phone Store";
+<?php
+require_once 'config/database.php';
 require_once 'includes/header.php';
 
 $conn = getDatabaseConnection();
@@ -14,17 +12,16 @@ $featuredProducts = $conn->query("
     LEFT JOIN categories c ON p.category_id = c.id 
     WHERE p.stock_quantity > 0 AND p.is_featured = TRUE
     ORDER BY p.created_at DESC 
-    LIMIT 8
+    LIMIT 6
 ");
 
-// Get categories
+// Get categories with product counts
 $categories = $conn->query("
     SELECT c.*, COUNT(p.id) as product_count 
     FROM categories c 
     LEFT JOIN products p ON c.id = p.category_id 
     GROUP BY c.id 
-    ORDER BY c.name 
-    LIMIT 6
+    ORDER BY c.name
 ");
 
 // Get latest products
@@ -32,117 +29,99 @@ $latestProducts = $conn->query("
     SELECT * FROM products 
     WHERE stock_quantity > 0 
     ORDER BY created_at DESC 
-    LIMIT 6
+    LIMIT 4
 ");
 
-// Get discounted products
-$discountedProducts = $conn->query("
-    SELECT * FROM products 
-    WHERE discount_price IS NOT NULL 
-    AND stock_quantity > 0 
-    ORDER BY (price - discount_price) DESC 
+// Get top-selling products (based on order items)
+$topSelling = $conn->query("
+    SELECT p.*, SUM(oi.quantity) as total_sold
+    FROM products p
+    LEFT JOIN order_items oi ON p.id = oi.product_id
+    GROUP BY p.id
+    ORDER BY total_sold DESC
     LIMIT 4
 ");
 ?>
 
 <!-- Hero Section -->
-<section class="hero-section">
-    <div class="hero-slider">
-        <div class="hero-slide active">
-            <div class="hero-content">
-                <h1>Latest Smartphones</h1>
-                <p>Discover the newest models with cutting-edge technology</p>
-                <a href="/products.php?sort=newest" class="btn btn-primary btn-lg">Shop Now</a>
-            </div>
-            <div class="hero-image">
-                <img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=800" alt="Smartphones">
-            </div>
+<section class="hero">
+    <div class="hero-content">
+        <h1>Discover Amazing Smartphones</h1>
+        <p>Find the perfect phone with the best deals and latest technology</p>
+        <div class="hero-buttons">
+            <a href="/products.php" class="btn btn-primary">Shop Now</a>
+            <a href="/products.php?category=smartphones" class="btn btn-outline">View Smartphones</a>
         </div>
-    </div>
-</section>
-
-<!-- Categories Section -->
-<section class="categories-section">
-    <div class="section-header">
-        <h2>Browse Categories</h2>
-        <a href="/products.php" class="view-all">View All</a>
-    </div>
-    <div class="categories-grid">
-        <?php while($category = $categories->fetch_assoc()): ?>
-        <a href="/products.php?category=<?php echo urlencode($category['slug']); ?>" class="category-card">
-            <div class="category-icon">
-                <i class="fas fa-mobile-alt"></i>
-            </div>
-            <h3><?php echo htmlspecialchars($category['name']); ?></h3>
-            <p><?php echo $category['product_count']; ?> Products</p>
-        </a>
-        <?php endwhile; ?>
     </div>
 </section>
 
 <!-- Featured Products -->
 <section class="featured-products">
     <div class="section-header">
-        <h2>Featured Products</h2>
-        <a href="/products.php?featured=true" class="view-all">View All</a>
+        <h2><i class="fas fa-star"></i> Featured Products</h2>
+        <a href="/products.php?featured=true" class="view-all">View All →</a>
     </div>
     <div class="products-grid">
-        <?php while($product = $featuredProducts->fetch_assoc()): 
-            $discount = $product['discount_price'] ? round((($product['price'] - $product['discount_price']) / $product['price']) * 100) : 0;
-        ?>
+        <?php while($product = $featuredProducts->fetch_assoc()): ?>
         <div class="product-card">
             <div class="product-image">
-                <img src="<?php echo htmlspecialchars($product['image_url'] ?: 'https://via.placeholder.com/300x300'); ?>" 
-                     alt="<?php echo htmlspecialchars($product['name']); ?>">
-                <?php if($discount > 0): ?>
-                    <span class="badge discount">-<?php echo $discount; ?>%</span>
+                <img src="<?php echo $product['image_url'] ?: '/images/default-phone.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                <?php if($product['discount_price']): ?>
+                    <span class="discount-badge">Save <?php echo round((($product['price'] - $product['discount_price']) / $product['price']) * 100); ?>%</span>
                 <?php endif; ?>
-                <?php if($product['stock_quantity'] < 5): ?>
-                    <span class="badge low-stock">Low Stock</span>
+                <?php if($product['stock_quantity'] < 10 && $product['stock_quantity'] > 0): ?>
+                    <span class="stock-badge">Only <?php echo $product['stock_quantity']; ?> left</span>
                 <?php endif; ?>
-                <div class="product-actions">
-                    <button class="action-btn wishlist" data-product-id="<?php echo $product['id']; ?>">
-                        <i class="far fa-heart"></i>
-                    </button>
-                    <button class="action-btn compare">
-                        <i class="fas fa-exchange-alt"></i>
-                    </button>
-                    <button class="action-btn quick-view" data-product-id="<?php echo $product['id']; ?>">
-                        <i class="far fa-eye"></i>
-                    </button>
-                </div>
             </div>
             <div class="product-info">
-                <span class="product-category"><?php echo htmlspecialchars($product['category_name']); ?></span>
-                <h3><a href="/product-detail.php?slug=<?php echo urlencode($product['slug']); ?>"><?php echo htmlspecialchars($product['name']); ?></a></h3>
-                <p class="product-brand"><?php echo htmlspecialchars($product['brand']); ?></p>
-                <div class="product-price">
+                <div class="product-header">
+                    <h3><?php echo htmlspecialchars($product['name']); ?></h3>
+                    <p class="product-category"><?php echo $product['category_name']; ?></p>
+                </div>
+                <p class="product-brand"><?php echo htmlspecialchars($product['brand']); ?> - <?php echo htmlspecialchars($product['model']); ?></p>
+                <div class="price">
                     <?php if($product['discount_price']): ?>
-                        <span class="current-price">$<?php echo formatPrice($product['discount_price']); ?></span>
-                        <span class="original-price">$<?php echo formatPrice($product['price']); ?></span>
+                        <span class="original-price">$<?php echo number_format($product['price'], 2); ?></span>
+                        <span class="current-price">$<?php echo number_format($product['discount_price'], 2); ?></span>
                     <?php else: ?>
-                        <span class="current-price">$<?php echo formatPrice($product['price']); ?></span>
+                        <span class="current-price">$<?php echo number_format($product['price'], 2); ?></span>
                     <?php endif; ?>
                 </div>
-                <div class="product-rating">
-                    <i class="fas fa-star"></i>
-                    <i class="fas fa-star"></i>
-                    <i class="fas fa-star"></i>
-                    <i class="fas fa-star"></i>
-                    <i class="far fa-star"></i>
-                    <span>(4.0)</span>
-                </div>
-                <div class="product-cta">
+                <div class="product-actions">
+                    <a href="/product-detail.php?slug=<?php echo $product['slug']; ?>" class="btn btn-secondary">View Details</a>
                     <?php if($product['stock_quantity'] > 0): ?>
-                        <button class="btn btn-primary add-to-cart" data-product-id="<?php echo $product['id']; ?>">
-                            <i class="fas fa-cart-plus"></i> Add to Cart
-                        </button>
+                        <form action="/cart.php" method="POST" class="add-to-cart-form">
+                            <input type="hidden" name="product_id" value="<?php echo $product['id']; ?>">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-cart-plus"></i> Add
+                            </button>
+                        </form>
                     <?php else: ?>
-                        <button class="btn btn-outline" disabled>Out of Stock</button>
+                        <button class="btn btn-secondary" disabled>Out of Stock</button>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
+        <?php endwhile; ?>
+    </div>
+</section>
+
+<!-- Categories -->
+<section class="categories">
+    <div class="section-header">
+        <h2><i class="fas fa-list"></i> Browse Categories</h2>
+    </div>
+    <div class="categories-grid">
+        <?php while($category = $categories->fetch_assoc()): ?>
+        <a href="/products.php?category=<?php echo $category['slug']; ?>" class="category-card">
+            <div class="category-icon">
+                <i class="fas fa-mobile-alt"></i>
+            </div>
+            <div class="category-info">
+                <h3><?php echo htmlspecialchars($category['name']); ?></h3>
+                <p><?php echo $category['product_count']; ?> products</p>
+            </div>
+        </a>
         <?php endwhile; ?>
     </div>
 </section>
@@ -150,68 +129,51 @@ $discountedProducts = $conn->query("
 <!-- Latest Products -->
 <section class="latest-products">
     <div class="section-header">
-        <h2>New Arrivals</h2>
-        <a href="/products.php?sort=newest" class="view-all">View All</a>
+        <h2><i class="fas fa-bolt"></i> New Arrivals</h2>
+        <a href="/products.php?sort=newest" class="view-all">View All →</a>
     </div>
     <div class="products-grid">
         <?php while($product = $latestProducts->fetch_assoc()): ?>
         <div class="product-card">
             <div class="product-image">
-                <img src="<?php echo htmlspecialchars($product['image_url'] ?: 'https://via.placeholder.com/300x300'); ?>" 
-                     alt="<?php echo htmlspecialchars($product['name']); ?>">
-                <span class="badge new">NEW</span>
+                <img src="<?php echo $product['image_url'] ?: '/images/default-phone.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                <span class="new-badge">NEW</span>
             </div>
             <div class="product-info">
-                <h3><a href="/product-detail.php?slug=<?php echo urlencode($product['slug']); ?>"><?php echo htmlspecialchars($product['name']); ?></a></h3>
-                <div class="product-price">
-                    <span class="current-price">$<?php echo formatPrice($product['price']); ?></span>
+                <h3><?php echo htmlspecialchars($product['name']); ?></h3>
+                <div class="price">
+                    <span class="current-price">$<?php echo number_format($product['price'], 2); ?></span>
                 </div>
-                <button class="btn btn-outline add-to-cart" data-product-id="<?php echo $product['id']; ?>">
-                    <i class="fas fa-cart-plus"></i> Add to Cart
-                </button>
+                <a href="/product-detail.php?slug=<?php echo $product['slug']; ?>" class="btn btn-secondary">View Details</a>
             </div>
         </div>
         <?php endwhile; ?>
     </div>
 </section>
 
-<!-- Discount Banner -->
-<section class="discount-banner">
-    <div class="banner-content">
-        <h2>Big Sale! Up to 50% Off</h2>
-        <p>Limited time offer on selected smartphones</p>
-        <a href="/products.php?discount=true" class="btn btn-light">Shop Sale</a>
-    </div>
-</section>
-
-<!-- Brands Section -->
-<section class="brands-section">
-    <div class="section-header">
-        <h2>Shop by Brand</h2>
-    </div>
-    <div class="brands-grid">
-        <a href="/products.php?brand=Apple" class="brand-logo">
-            <i class="fab fa-apple"></i>
-            <span>Apple</span>
-        </a>
-        <a href="/products.php?brand=Samsung" class="brand-logo">
-            <i class="fas fa-mobile-alt"></i>
-            <span>Samsung</span>
-        </a>
-        <a href="/products.php?brand=Google" class="brand-logo">
-            <i class="fab fa-google"></i>
-            <span>Google</span>
-        </a>
-        <a href="/products.php?brand=OnePlus" class="brand-logo">
-            <span>OnePlus</span>
-        </a>
-        <a href="/products.php?brand=Xiaomi" class="brand-logo">
-            <span>Xiaomi</span>
-        </a>
-        <a href="/products.php?brand=Sony" class="brand-logo">
-            <i class="fab fa-sony"></i>
-            <span>Sony</span>
-        </a>
+<!-- Stats Section -->
+<section class="stats">
+    <div class="stats-container">
+        <div class="stat-item">
+            <i class="fas fa-box-open"></i>
+            <h3>5000+</h3>
+            <p>Products Available</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-shipping-fast"></i>
+            <h3>Free</h3>
+            <p>Shipping Over $100</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-shield-alt"></i>
+            <h3>1 Year</h3>
+            <p>Warranty on All Products</p>
+        </div>
+        <div class="stat-item">
+            <i class="fas fa-headset"></i>
+            <h3>24/7</h3>
+            <p>Customer Support</p>
+        </div>
     </div>
 </section>
 
