@@ -1,6 +1,7 @@
 -- Phone Store Database Schema
-CREATE DATABASE IF NOT EXISTS mydatabase;
-USE mydatabase;
+-- Phone Store Database Schema
+CREATE DATABASE IF NOT EXISTS phone_store;
+USE phone_store;
 
 -- Users table
 CREATE TABLE users (
@@ -52,7 +53,6 @@ CREATE TABLE products (
     INDEX idx_brand (brand),
     INDEX idx_featured (is_featured),
     INDEX idx_price (price)
-    -- Removed FULLTEXT index as it requires specific configuration
 );
 
 -- Cart table
