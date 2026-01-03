@@ -1,69 +1,118 @@
-
 <?php
-require_once 'config/database.php';
+// products.php - Fixed SQL Syntax
+require_once 'config/init.php';
+
+$page_title = "Products - Phone Store";
 require_once 'includes/header.php';
 
 $conn = getDatabaseConnection();
 
 // Get filter parameters
-$category = isset($_GET['category']) ? $_GET['category'] : '';
-$search = isset($_GET['search']) ? $_GET['search'] : '';
+$category = isset($_GET['category']) ? sanitize($_GET['category']) : '';
+$search = isset($_GET['search']) ? sanitize($_GET['search']) : '';
 $minPrice = isset($_GET['min_price']) ? floatval($_GET['min_price']) : 0;
 $maxPrice = isset($_GET['max_price']) ? floatval($_GET['max_price']) : 10000;
-$brand = isset($_GET['brand']) ? $_GET['brand'] : '';
+$brand = isset($_GET['brand']) ? sanitize($_GET['brand']) : '';
 
-// Build query
-$query = "SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1";
+// Build base query
+$base_query = "
+    SELECT p.*, c.name as category_name 
+    FROM products p 
+    LEFT JOIN categories c ON p.category_id = c.id 
+    WHERE p.stock_quantity > 0
+";
+
+$count_query = "
+    SELECT COUNT(*) as total 
+    FROM products p 
+    LEFT JOIN categories c ON p.category_id = c.id 
+    WHERE p.stock_quantity > 0
+";
+
+// Build WHERE conditions
+$where_conditions = [];
 $params = [];
 $types = '';
 
+// Category filter
 if ($category) {
-    $query .= " AND c.slug = ?";
+    $where_conditions[] = "c.slug = ?";
     $params[] = $category;
     $types .= 's';
 }
 
+// Search filter
 if ($search) {
-    $query .= " AND (p.name LIKE ? OR p.brand LIKE ? OR p.description LIKE ?)";
+    $where_conditions[] = "(p.name LIKE ? OR p.brand LIKE ? OR p.description LIKE ?)";
     $params[] = "%$search%";
     $params[] = "%$search%";
     $params[] = "%$search%";
     $types .= 'sss';
 }
 
+// Brand filter
 if ($brand) {
-    $query .= " AND p.brand = ?";
+    $where_conditions[] = "p.brand = ?";
     $params[] = $brand;
     $types .= 's';
 }
 
-$query .= " AND p.price BETWEEN ? AND ? AND p.stock_quantity > 0";
+// Price filter
+$where_conditions[] = "p.price BETWEEN ? AND ?";
 $params[] = $minPrice;
 $params[] = $maxPrice;
 $types .= 'dd';
+
+// Add WHERE conditions if any
+if (!empty($where_conditions)) {
+    $where_clause = " AND " . implode(" AND ", $where_conditions);
+    $base_query .= $where_clause;
+    $count_query .= $where_clause;
+}
 
 // Pagination
 $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
 $limit = 12;
 $offset = ($page - 1) * $limit;
 
-$totalResult = $conn->query(str_replace('SELECT p.*', 'SELECT COUNT(*) as total', $query));
-$totalRow = $totalResult->fetch_assoc();
-$totalProducts = $totalRow['total'];
+// Get total products count
+$totalProducts = 0;
+try {
+    $stmt = $conn->prepare($count_query);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    $totalProducts = $row['total'];
+    $stmt->close();
+} catch (Exception $e) {
+    error_log("Count query error: " . $e->getMessage());
+    $totalProducts = 0;
+}
+
 $totalPages = ceil($totalProducts / $limit);
 
-$query .= " LIMIT ? OFFSET ?";
+// Get products with pagination
+$base_query .= " LIMIT ? OFFSET ?";
 $params[] = $limit;
 $params[] = $offset;
 $types .= 'ii';
 
-// Prepare and execute
-$stmt = $conn->prepare($query);
-if ($params) {
-    $stmt->bind_param($types, ...$params);
+$products = null;
+try {
+    $stmt = $conn->prepare($base_query);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $products = $stmt->get_result();
+} catch (Exception $e) {
+    error_log("Products query error: " . $e->getMessage());
+    echo "<div class='error'>Error loading products. Please try again.</div>";
+    $products = null;
 }
-$stmt->execute();
-$products = $stmt->get_result();
 
 // Get brands for filter
 $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT NULL ORDER BY brand");
@@ -73,10 +122,12 @@ $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT N
     <div class="sidebar">
         <h3>Filters</h3>
         <form method="GET" action="">
+            <input type="hidden" name="page" value="1">
+            
             <div class="filter-group">
                 <h4>Price Range</h4>
-                <input type="number" name="min_price" placeholder="Min $" value="<?php echo $minPrice; ?>">
-                <input type="number" name="max_price" placeholder="Max $" value="<?php echo $maxPrice; ?>">
+                <input type="number" name="min_price" placeholder="Min $" value="<?php echo htmlspecialchars($minPrice); ?>" step="0.01">
+                <input type="number" name="max_price" placeholder="Max $" value="<?php echo htmlspecialchars($maxPrice); ?>" step="0.01">
             </div>
             
             <div class="filter-group">
@@ -84,8 +135,9 @@ $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT N
                 <select name="brand">
                     <option value="">All Brands</option>
                     <?php while($b = $brands->fetch_assoc()): ?>
-                        <option value="<?php echo $b['brand']; ?>" <?php echo $brand == $b['brand'] ? 'selected' : ''; ?>>
-                            <?php echo $b['brand']; ?>
+                        <option value="<?php echo htmlspecialchars($b['brand']); ?>" 
+                            <?php echo $brand == $b['brand'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($b['brand']); ?>
                         </option>
                     <?php endwhile; ?>
                 </select>
@@ -102,19 +154,28 @@ $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT N
     </div>
     
     <div class="products-container">
-        <h2>All Products (<?php echo $totalProducts; ?> found)</h2>
+        <h2>All Products <?php if($totalProducts > 0): ?>(<?php echo $totalProducts; ?> found)<?php endif; ?></h2>
         
-        <div class="products-grid">
-            <?php if($products->num_rows > 0): ?>
+        <?php if($products && $products->num_rows > 0): ?>
+            <div class="products-grid">
                 <?php while($product = $products->fetch_assoc()): ?>
                     <div class="product-card">
                         <div class="product-image">
-                            <img src="<?php echo $product['image_url'] ?: '/images/default-phone.jpg'; ?>" alt="<?php echo htmlspecialchars($product['name']); ?>">
+                            <img src="<?php echo htmlspecialchars($product['image_url'] ?: '/images/default-phone.jpg'); ?>" 
+                                 alt="<?php echo htmlspecialchars($product['name']); ?>"
+                                 onerror="this.src='/images/default-phone.jpg'">
+                            <?php if($product['discount_price']): ?>
+                                <span class="badge discount">
+                                    Save <?php 
+                                    $discount = round((($product['price'] - $product['discount_price']) / $product['price']) * 100);
+                                    echo $discount; ?>%
+                                </span>
+                            <?php endif; ?>
                         </div>
                         <div class="product-info">
                             <h3><?php echo htmlspecialchars($product['name']); ?></h3>
                             <p class="product-brand"><?php echo htmlspecialchars($product['brand']); ?></p>
-                            <p class="product-category"><?php echo $product['category_name']; ?></p>
+                            <p class="product-category"><?php echo htmlspecialchars($product['category_name']); ?></p>
                             <div class="price">
                                 <?php if($product['discount_price']): ?>
                                     <span class="original-price">$<?php echo number_format($product['price'], 2); ?></span>
@@ -130,31 +191,53 @@ $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT N
                                     <span class="out-of-stock">Out of Stock</span>
                                 <?php endif; ?>
                             </div>
-                            <a href="/product-detail.php?slug=<?php echo $product['slug']; ?>" class="btn btn-secondary">View Details</a>
+                            <a href="/product-detail.php?slug=<?php echo urlencode($product['slug']); ?>" class="btn btn-secondary">
+                                View Details
+                            </a>
                         </div>
                     </div>
                 <?php endwhile; ?>
-            <?php else: ?>
-                <p>No products found. Try different filters.</p>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php elseif($products): ?>
+            <div class="no-products">
+                <i class="fas fa-search fa-3x"></i>
+                <h3>No products found</h3>
+                <p>Try different filters or search terms.</p>
+                <a href="/products.php" class="btn btn-primary">Clear Filters</a>
+            </div>
+        <?php endif; ?>
         
         <!-- Pagination -->
         <?php if($totalPages > 1): ?>
         <div class="pagination">
             <?php if($page > 1): ?>
-                <a href="?page=<?php echo $page-1; ?>&<?php echo http_build_query($_GET); ?>">&laquo; Previous</a>
+                <a href="?<?php 
+                    $query = $_GET;
+                    $query['page'] = $page - 1;
+                    echo http_build_query($query);
+                ?>">&laquo; Previous</a>
             <?php endif; ?>
             
             <?php for($i = 1; $i <= $totalPages; $i++): ?>
-                <a href="?page=<?php echo $i; ?>&<?php echo http_build_query($_GET); ?>" 
-                   class="<?php echo $i == $page ? 'active' : ''; ?>">
-                    <?php echo $i; ?>
-                </a>
+                <?php if($i == 1 || $i == $totalPages || ($i >= $page - 2 && $i <= $page + 2)): ?>
+                    <a href="?<?php 
+                        $query = $_GET;
+                        $query['page'] = $i;
+                        echo http_build_query($query);
+                    ?>" class="<?php echo $i == $page ? 'active' : ''; ?>">
+                        <?php echo $i; ?>
+                    </a>
+                <?php elseif($i == $page - 3 || $i == $page + 3): ?>
+                    <span class="dots">...</span>
+                <?php endif; ?>
             <?php endfor; ?>
             
             <?php if($page < $totalPages): ?>
-                <a href="?page=<?php echo $page+1; ?>&<?php echo http_build_query($_GET); ?>">Next &raquo;</a>
+                <a href="?<?php 
+                    $query = $_GET;
+                    $query['page'] = $page + 1;
+                    echo http_build_query($query);
+                ?>">Next &raquo;</a>
             <?php endif; ?>
         </div>
         <?php endif; ?>
@@ -162,7 +245,12 @@ $brands = $conn->query("SELECT DISTINCT brand FROM products WHERE brand IS NOT N
 </div>
 
 <?php
-$stmt->close();
+if ($products) {
+    $products->free();
+}
+if (isset($stmt)) {
+    $stmt->close();
+}
 $conn->close();
 require_once 'includes/footer.php';
 ?>
