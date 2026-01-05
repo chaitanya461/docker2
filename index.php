@@ -1,4 +1,3 @@
-
 <?php
 require_once 'config/database.php';
 require_once 'includes/header.php';
@@ -178,6 +177,22 @@ $topSelling = $conn->query("
 </section>
 
 <?php
-$conn->close();
+// Free result sets
+if ($featuredProducts) {
+    $featuredProducts->free();
+}
+if ($categories) {
+    $categories->free();
+}
+if ($latestProducts) {
+    $latestProducts->free();
+}
+if ($topSelling) {
+    $topSelling->free();
+}
+
+// DO NOT close the connection here - let footer.php handle it
+// $conn->close();
+
 require_once 'includes/footer.php';
 ?>
