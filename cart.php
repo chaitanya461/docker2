@@ -208,7 +208,7 @@ require_once 'includes/header.php';
                     <i class="fas fa-arrow-left"></i> Continue Shopping
                 </a>
                 <?php if($cartItems->num_rows > 0): ?>
-                    <a href="/checkout.php" class="btn btn-primary">
+                    <a href="#" class="btn btn-primary">
                         <i class="fas fa-lock"></i> Proceed to Checkout
                     </a>
                 <?php endif; ?>
