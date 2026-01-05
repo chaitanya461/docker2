@@ -1,6 +1,6 @@
 <?php
 // logout.php
-require_once 'config/init.php';
+require_once '../config/init.php';
 
 // Only proceed if user is logged in
 if (!isLoggedIn()) {
