@@ -1,7 +1,6 @@
 USE phone_store;
 
 -- Use the correct database name (from your schema)
-USE mydatabase;
 
 -- Clear existing data (if needed)
 DELETE FROM wishlist;
