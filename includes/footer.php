@@ -39,12 +39,26 @@
                     <h3>Categories</h3>
                     <ul>
                         <?php
-                        $conn = getDatabaseConnection();
-                        $categories = $conn->query("SELECT * FROM categories ORDER BY name LIMIT 5");
-                        while($cat = $categories->fetch_assoc()):
+                        // Always create a NEW connection for footer to avoid conflicts
+                        $footer_conn = getDatabaseConnection();
+                        if ($footer_conn) {
+                            $categories = $footer_conn->query("SELECT slug, name FROM categories ORDER BY name LIMIT 5");
+                            if ($categories && $categories->num_rows > 0) {
+                                while($cat = $categories->fetch_assoc()):
+                                ?>
+                                    <li><a href="/products.php?category=<?php echo urlencode($cat['slug']); ?>"><?php echo htmlspecialchars($cat['name']); ?></a></li>
+                                <?php 
+                                endwhile;
+                                $categories->free();
+                            } else {
+                                echo '<li>No categories found</li>';
+                            }
+                            // Close the footer connection
+                            $footer_conn->close();
+                        } else {
+                            echo '<li>Unable to load categories</li>';
+                        }
                         ?>
-                            <li><a href="/products.php?category=<?php echo urlencode($cat['slug']); ?>"><?php echo htmlspecialchars($cat['name']); ?></a></li>
-                        <?php endwhile; ?>
                     </ul>
                 </div>
 
@@ -54,8 +68,6 @@
                     <ul class="contact-info">
                         <li><i class="fas fa-map-marker-alt"></i> 123 Tech Street, Silicon Valley, CA</li>
                         <li><i class="fas fa-phone"></i> +1 (555) 123-4567</li>
-                        <li><i class="fas fa-envelope"></i> info@phonestore.com</li>
-                        <li><i class="fas fa-clock"></i> Mon-Fri: 9AM-6PM PST</li>
                     </ul>
                 </div>
             </div>
@@ -90,28 +102,23 @@
             const dropdowns = document.querySelectorAll('.nav-dropdown');
             dropdowns.forEach(dropdown => {
                 dropdown.addEventListener('mouseenter', function() {
-                    this.querySelector('.dropdown-menu').style.display = 'block';
+                    const menu = this.querySelector('.dropdown-menu');
+                    if (menu) menu.style.display = 'block';
                 });
                 dropdown.addEventListener('mouseleave', function() {
-                    this.querySelector('.dropdown-menu').style.display = 'none';
+                    const menu = this.querySelector('.dropdown-menu');
+                    if (menu) menu.style.display = 'none';
                 });
             });
 
-            // Mobile menu toggle
-            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-            const navMenu = document.querySelector('.nav-menu');
-            
-            if (mobileMenuBtn) {
-                mobileMenuBtn.addEventListener('click', function() {
-                    navMenu.classList.toggle('show');
-                });
-            }
-
-            // Add to cart animation
-            document.querySelectorAll('.add-to-cart').forEach(button => {
+            // Add to cart functionality
+            document.querySelectorAll('.add-to-cart-form button[type="submit"]').forEach(button => {
                 button.addEventListener('click', function(e) {
                     e.preventDefault();
-                    const productId = this.dataset.productId;
+                    const form = this.closest('form');
+                    const productId = form.querySelector('input[name="product_id"]').value;
+                    
+                    if (!productId) return;
                     
                     // Add animation
                     this.classList.add('adding');
@@ -119,30 +126,36 @@
                         this.classList.remove('adding');
                     }, 1000);
                     
-                    // AJAX request to add to cart
-                    fetch('/ajax/add-to-cart.php', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ product_id: productId })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            // Update cart count
-                            document.querySelector('.cart-count').textContent = data.cart_count;
-                            // Show success message
-                            showNotification('Product added to cart!', 'success');
-                        } else {
-                            showNotification(data.message || 'Failed to add to cart', 'error');
-                        }
-                    });
+                    // Submit the form
+                    form.submit();
                 });
             });
+
+            // Newsletter form submission
+            const newsletterForm = document.querySelector('.newsletter-form');
+            if (newsletterForm) {
+                newsletterForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const emailInput = this.querySelector('input[type="email"]');
+                    const email = emailInput ? emailInput.value : '';
+                    
+                    // Simple validation
+                    if (!email || !email.includes('@')) {
+                        showNotification('Please enter a valid email address', 'error');
+                        return;
+                    }
+                    
+                    // Simulate subscription
+                    showNotification('Thank you for subscribing!', 'success');
+                    this.reset();
+                });
+            }
         });
 
         function showNotification(message, type = 'info') {
+            // Remove existing notifications
+            document.querySelectorAll('.notification').forEach(n => n.remove());
+            
             // Create notification element
             const notification = document.createElement('div');
             notification.className = `notification ${type}`;
