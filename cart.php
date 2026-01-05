@@ -29,17 +29,16 @@ if($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['product_id'])) {
         $update = $conn->prepare("UPDATE cart SET quantity = quantity + ? WHERE user_id = ? AND product_id = ?");
         $update->bind_param('iii', $quantity, $user_id, $product_id);
         $update->execute();
+        $update->close();
     } else {
         // Add new item
         $insert = $conn->prepare("INSERT INTO cart (user_id, product_id, quantity) VALUES (?, ?, ?)");
         $insert->bind_param('iii', $user_id, $product_id, $quantity);
         $insert->execute();
+        $insert->close();
     }
     
     $check->close();
-    if(isset($update)) $update->close();
-    if(isset($insert)) $insert->close();
-    
     redirect('/cart.php');
     exit;
 }
@@ -250,7 +249,17 @@ require_once 'includes/header.php';
 </section>
 
 <?php
-$stmt->close();
-$conn->close();
+// Free result sets
+if ($cartItems) {
+    $cartItems->free();
+}
+
+if (isset($stmt)) {
+    $stmt->close();
+}
+
+// DO NOT close the connection here - let footer.php handle it
+// $conn->close();
+
 require_once 'includes/footer.php';
 ?>
