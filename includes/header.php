@@ -95,8 +95,8 @@
                     </div>
                 </li>
                 <li><a href="/products.php?deal=hot"><i class="fas fa-fire"></i> Hot Deals</a></li>
-                <li><a href="/about.php"><i class="fas fa-info-circle"></i> About</a></li>
-                <li><a href="/contact.php"><i class="fas fa-phone-alt"></i> Contact</a></li>
+                <li><a href="#"><i class="fas fa-info-circle"></i> About</a></li>
+                <li><a href="#"><i class="fas fa-phone-alt"></i> Contact</a></li>
             </ul>
         </div>
     </nav>
