@@ -5,6 +5,6 @@ ENV MYSQL_DATABASE=mydatabase
 ENV MYSQL_ROOT_PASSWORD=rootpassword
 
 # Copy initialization SQL
-COPY init.sql /docker-entrypoint-initdb.d/
+COPY ./db-init /docker-entrypoint-initdb.d/
 
 EXPOSE 3306
